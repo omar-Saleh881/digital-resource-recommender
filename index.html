@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مواردك - منصة التوصية الذكية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.bunny.net/css?family=noto-sans-arabic:300,400,500,600,700,800');
+    body { font-family: 'Noto Sans Arabic', sans-serif; }
+    .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback, useEffect, useMemo, createContext, useContext } = React;
+
+    const AppContext = createContext(null);
+    function useApp() { return useContext(AppContext); }
+
+    /* ─── Mock Data ─── */
+    const GOALS = [
+      { id: "startup", name: "أبدأ مشروع صغير", icon: "rocket", description: "أدوات وموارد لإطلاق مشروعك الصغير من الصفر" },
+      { id: "freelance", name: "أبدأ العمل الحر", icon: "briefcase", description: "منصات وأدوات للعمل الحر وتحقيق دخل مستقل" },
+      { id: "learn", name: "أتعلم أو أبحث", icon: "book", description: "منصات تعليمية وأدوات بحث لتطوير مهاراتك" },
+    ];
+    const DOMAINS = [
+      { id: "ai", name: "الذكاء الاصطناعي" }, { id: "marketing", name: "التسويق الرقمي" },
+      { id: "design", name: "التصميم" }, { id: "development", name: "البرمجة والتطوير" },
+      { id: "business", name: "الأعمال والإدارة" }, { id: "education", name: "التعليم والتدريب" },
+    ];
+    const LEVELS = [
+      { id: "beginner", name: "مبتدئ", description: "لا توجد خبرة سابقة" },
+      { id: "intermediate", name: "متوسط", description: "لدي بعض الخبرة" },
+      { id: "advanced", name: "متقدم", description: "لدي خبرة واسعة" },
+    ];
+    const PRICE_PREFERENCES = [
+      { id: "free", name: "مجاني فقط", description: "أدوات وموارد مجانية بالكامل" },
+      { id: "freemium", name: "مجاني + مدفوع", description: "أقبل الخطة المجانية مع خيارات مدفوعة" },
+      { id: "paid", name: "مدفوع فقط", description: "مستعد للاستثمار في أدوات احترافية" },
+      { id: "any", name: "أي سعر", description: "لا أمانع السعر" },
+    ];
+    const RESOURCE_TYPES = ["أداة ذكاء اصطناعي","منصة تعليمية","منصة عمل حر","أداة بحث","أداة إنتاجية"];
+    const PRICING_LABELS = ["مجاني","مجاني/مدفوع","مدفوع"];
+    const DIFFICULTY_LABELS = ["سهل","متوسط","متقدم"];
+    const LEVEL_MAP = { beginner:0, intermediate:1, advanced:2 };
+
+    const MOCK_RESOURCES = [
+      { id:1, name:"ChatGPT", type:"أداة ذكاء اصطناعي", description:"أداة ذكاء اصطناعي متقدمة للمحادثة وإنشاء المحتوى والبرمجة والترجمة من أقوى الأدوات المعتمدة على نماذج اللغات الكبيرة", pricing:0, difficulty:0, level:"beginner", goals:["startup","freelance","learn"], domains:["ai","marketing","development","education"], tags:["ذكاء اصطناعي","محادثة","توليد محتوى","برمجة"], useCase:"إنشاء محتوى تسويقي، كتابة أكواد برمجية، ترجمة نصوص، العصف الذهني للمشاريع", targetAudience:"رواد أعمال، مسوقين، مطورين، طلاب", url:"https://chat.openai.com" },
+      { id:2, name:"Coursera", type:"منصة تعليمية", description:"منصة تعليمية عالمية تقدم دورات من أفضل الجامعات والمؤسسات مثل Stanford و Google و IBM في مجالات متنوعة", pricing:1, difficulty:0, level:"beginner", goals:["learn"], domains:["ai","business","education","development"], tags:["دورات","شهادات","جامعات","تعلم ذاتي"], useCase:"تعلم مهارات جديدة، الحصول على شهادات معتمدة، تطوير مهني مستمر", targetAudience:"طلاب، محترفون، باحثون عن تغيير مهني", url:"https://coursera.org" },
+      { id:3, name:"Upwork", type:"منصة عمل حر", description:"أكبر منصة للعمل الحر عالمياً تربط المستقلين بأصحاب المشاريع في مجالات البرمجة والتصميم والكتابة والتسويق", pricing:1, difficulty:1, level:"intermediate", goals:["freelance"], domains:["development","design","marketing","business"], tags:["عمل حر","مشاريع","عملاء","دولار"], useCase:"البحث عن مشاريع عمل حر، بناء معرض أعمال، كسب دخل بالدولار", targetAudience:"مستقلون، مطورون، مصممون، كتاب", url:"https://upwork.com" },
+      { id:4, name:"Google Scholar", type:"أداة بحث", description:"محرك بحث أكاديمي مجاني من Google يتيح البحث في الأبحاث والمقالات العلمية والمراجع والكتب الأكاديمية", pricing:0, difficulty:0, level:"beginner", goals:["learn"], domains:["education","ai","business"], tags:["أبحاث","أكاديمي","مقالات","مراجع"], useCase:"البحث عن أوراق علمية، مراجعة الأدبيات، الاستشهاد بالمصادر", targetAudience:"باحثون، طلاب دراسات عليا، أكاديميون", url:"https://scholar.google.com" },
+      { id:5, name:"Notion", type:"أداة إنتاجية", description:"أداة إنتاجية شاملة تجمع بين تدوين الملاحظات وإدارة المشاريع وقواعد البيانات والمهام في مكان واحد", pricing:1, difficulty:0, level:"beginner", goals:["startup","freelance","learn"], domains:["business","education","marketing"], tags:["إنتاجية","تنظيم","مشاريع","ملاحظات"], useCase:"تنظيم المشاريع، إدارة المهام، تدوين الملاحظات، بناء قواعد بيانات", targetAudience:"فرق العمل، أفراد، طلاب، رواد أعمال", url:"https://notion.so" },
+      { id:6, name:"Midjourney", type:"أداة ذكاء اصطناعي", description:"أداة توليد صور بالذكاء الاصطناعي تنتج صوراً فنية مذهلة من أوصاف نصية مثالية للتصميم والإبداع البصري", pricing:2, difficulty:1, level:"intermediate", goals:["startup","freelance"], domains:["design","marketing","ai"], tags:["توليد صور","تصميم","إبداع","ذكاء اصطناعي"], useCase:"إنشاء صور للمشاريع، تصميم محتوى تسويقي، إلهام بصري", targetAudience:"مصممون، مسوقون، رواد أعمال، فنانون", url:"https://midjourney.com" },
+      { id:7, name:"Khan Academy", type:"منصة تعليمية", description:"منصة تعليمية مجانية تقدم دروساً في الرياضيات والعلوم والبرمجة والاقتصاد وغيرها من المواد التعليمية", pricing:0, difficulty:0, level:"beginner", goals:["learn"], domains:["education"], tags:["مجاني","تعليم","رياضيات","علوم"], useCase:"تعلم الأساسيات في مواد متعددة، مراجعة دروس، تعلم ذاتي", targetAudience:"طلاب، معلمون، متعلمون ذاتيون", url:"https://khanacademy.org" },
+      { id:8, name:"Fiverr", type:"منصة عمل حر", description:"منصة عمل حر تتيح للمستقلين تقديم خدماتهم بأسعار تبدأ من 5 دولارات مناسبة للمبتدئين والمحترفين", pricing:1, difficulty:0, level:"beginner", goals:["freelance"], domains:["design","marketing","development","business"], tags:["عمل حر","خدمات","مبتدئين","أسعار منخفضة"], useCase:"بدء العمل الحر بسهولة، بناء خبرة، تنويع مصادر الدخل", targetAudience:"مستقلون مبتدئون، مصممون، كتاب، مطورون", url:"https://fiverr.com" },
+      { id:9, name:"Grammarly", type:"أداة إنتاجية", description:"أداة ذكية لمراجعة وتدقيق النصوص باللغة الإنجليزية، تقدم اقتراحات لتحسين القواعد والأسلوب والوضوح", pricing:1, difficulty:0, level:"beginner", goals:["freelance","learn"], domains:["education","marketing","business"], tags:["تدقيق","كتابة","لغة إنجليزية","إنتاجية"], useCase:"تحسين جودة الكتابة، مراجعة الرسائل والوثائق، تعلم قواعد اللغة", targetAudience:"كتاب، طلاب، محترفون يعملون بالإنجليزية", url:"https://grammarly.com" },
+      { id:10, name:"Zotero", type:"أداة بحث", description:"أداة مجانية لإدارة المراجع والأبحاث تتيح جمع وتنظيم واقتباس المصادر الأكاديمية بسهولة", pricing:0, difficulty:1, level:"intermediate", goals:["learn"], domains:["education"], tags:["مراجع","أبحاث","اقتباس","أكاديمي"], useCase:"تنظيم المصادر الأكاديمية، إنشاء قوائم مراجع، التعاون في البحث", targetAudience:"باحثون، طلاب دراسات عليا، أكاديميون", url:"https://zotero.org" },
+      { id:11, name:"Canva", type:"أداة إنتاجية", description:"منصة تصميم جرافيكي سهلة الاستخدام تقدم قوالب جاهزة لتصميم العروض التقديمية والمنشورات والشعارات والمزيد", pricing:1, difficulty:0, level:"beginner", goals:["startup","freelance"], domains:["design","marketing","business"], tags:["تصميم","قوالب","جرافيك","سهل"], useCase:"تصميم محتوى تسويقي، عروض تقديمية، شعارات، منشورات سوشيال ميديا", targetAudience:"رواد أعمال، مسوقون، مصممون مبتدئون", url:"https://canva.com" },
+      { id:12, name:"GitHub Copilot", type:"أداة ذكاء اصطناعي", description:"مساعد برمجي بالذكاء الاصطناعي يقترح أكواداً برمجية تلقائياً أثناء الكتابة يدعم عشرات اللغات البرمجية", pricing:2, difficulty:2, level:"advanced", goals:["startup","freelance","learn"], domains:["development","ai"], tags:["برمجة","ذكاء اصطناعي","أكواد","تطوير"], useCase:"تسريع كتابة الأكواد، تعلم لغات برمجة جديدة، تحسين جودة الكود", targetAudience:"مطورون، مبرمجون، طلاب برمجة", url:"https://github.com/features/copilot" },
+    ];
+
+    const ACTION_PLAN_STEPS = [
+      { title:"حدد هدفك بوضوح", description:"ضع أهدافاً قابلة للقياس ومحددة زمنياً لمشروعك أو مسارك المهني", suggestedResources:[1,2] },
+      { title:"ابحث عن الموارد المناسبة", description:"استخدم منصة التوصية لاكتشاف الأدوات والمنصات الأنسب لاحتياجاتك", suggestedResources:[4,5,10] },
+      { title:"ابدأ التعلم والتطبيق", description:"التحق بالدورات التدريبية وابدأ بتطبيق ما تعلمته على مشاريع عملية", suggestedResources:[2,7] },
+      { title:"ابنِ معرض أعمالك", description:"وثّق مشاريعك وإنجازاتك في معرض أعمال يعكس مهاراتك وخبراتك", suggestedResources:[6,11] },
+      { title:"ابحث عن فرصك الأولى", description:"تقدم للعملاء أو الشركات أو ابدأ مشروعك الخاص باستخدام الموارد التي اكتسبتها", suggestedResources:[3,8] },
+    ];
+
+    /* ─── SVG Icons ─── */
+    function Icon({ name, size = 20, className = "" }) {
+      const s = size;
+      const icons = {
+        rocket: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>,
+        briefcase: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+        book: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>,
+        search: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
+        heart: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+        heartFilled: <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+        star: <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+        arrowRight: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>,
+        arrowLeft: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>,
+        check: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+        x: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+        menu: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
+        user: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+        externalLink: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>,
+        filter: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
+        grid: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>,
+        list: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>,
+        chevronDown: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
+        sparkle: <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2L14.09 8.26L20 9.27L15.55 13.97L16.91 20L12 16.9L7.09 20L8.45 13.97L4 9.27L9.91 8.26L12 2Z"/></svg>,
+        target: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+        layers: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>,
+        zap: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+        save: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+        clipboard: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>,
+        mail: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
+        lock: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+        eye: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
+        eyeOff: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>,
+        trash: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+        plus: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+        home: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+        compass: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
+      };
+      return <span className={className}>{icons[name] || null}</span>;
+    }
+
+    /* ─── UI Components ─── */
+    function Button({ children, variant = "primary", size = "md", className = "", onClick, disabled, type = "button" }) {
+      const base = "inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+      const v = { primary:"bg-gradient-to-l from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700 focus:ring-blue-500 shadow-lg shadow-blue-500/25", secondary:"bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-300 shadow-sm", ghost:"text-gray-600 hover:bg-gray-100 hover:text-gray-900", outline:"border-2 border-blue-500 text-blue-600 hover:bg-blue-50 focus:ring-blue-500", danger:"bg-red-50 text-red-600 hover:bg-red-100 focus:ring-red-500" };
+      const sz = { sm:"px-3 py-1.5 text-sm", md:"px-5 py-2.5 text-sm", lg:"px-8 py-3.5 text-base", xl:"px-10 py-4 text-lg" };
+      return <button type={type} className={`${base} ${v[variant]} ${sz[size]} ${className}`} onClick={onClick} disabled={disabled}>{children}</button>;
+    }
+
+    function Badge({ children, variant = "default", className = "" }) {
+      const v = { default:"bg-gray-100 text-gray-700", primary:"bg-blue-100 text-blue-700", success:"bg-green-100 text-green-700", warning:"bg-yellow-100 text-yellow-700", purple:"bg-violet-100 text-violet-700", pink:"bg-pink-100 text-pink-700" };
+      return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${v[variant]} ${className}`}>{children}</span>;
+    }
+
+    function Card({ children, className = "", hover = false, onClick }) {
+      return <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm ${hover?"hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer":""} ${className}`} onClick={onClick}>{children}</div>;
+    }
+
+    function Input({ label, error, className = "", ...props }) {
+      return <div className={className}>{label && <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>}<input className={`w-full px-4 py-2.5 rounded-xl border ${error?"border-red-300 focus:ring-red-500":"border-gray-200 focus:ring-blue-500"} bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`} {...props}/>{error && <p className="mt-1 text-sm text-red-500">{error}</p>}</div>;
+    }
+
+    function Select({ label, options, className = "", ...props }) {
+      return <div className={className}>{label && <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>}<div className="relative"><select className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none transition-all pr-10" {...props}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select><div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><Icon name="chevronDown" size={16} className="text-gray-400"/></div></div></div>;
+    }
+
+    function ProgressBar({ current, total }) {
+      return <div className="w-full"><div className="flex justify-between mb-2"><span className="text-sm text-gray-500">الخطوة {current} من {total}</span><span className="text-sm font-semibold text-blue-600">{Math.round((current/total)*100)}%</span></div><div className="w-full bg-gray-100 rounded-full h-2"><div className="bg-gradient-to-l from-violet-600 to-blue-600 h-2 rounded-full transition-all duration-500 ease-out" style={{width:`${(current/total)*100}%`}}/></div></div>;
+    }
+
+    function SectionTitle({ title, subtitle, center = true }) {
+      return <div className={`mb-12 ${center?"text-center":""}`}><h2 className="text-3xl font-bold text-gray-900 mb-3">{title}</h2>{subtitle && <p className="text-lg text-gray-500 max-w-2xl mx-auto">{subtitle}</p>}</div>;
+    }
+
+    /* ─── Navbar ─── */
+    function Navbar({ currentPage, setCurrentPage }) {
+      const [mobileOpen, setMobileOpen] = useState(false);
+      const { favorites } = useApp();
+      const navItems = [
+        { path:"/", label:"الرئيسية" }, { path:"/resources", label:"الموارد" },
+        { path:"/wizard", label:"التوصية" }, { path:"/favorites", label:"المفضلة" },
+        { path:"/plans", label:"خططي" },
+      ];
+      return (
+        <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-2 group cursor-pointer" onClick={()=>setCurrentPage("/")}>
+                <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20"><Icon name="sparkle" size={18} className="text-white"/></div>
+                <span className="text-xl font-bold bg-gradient-to-l from-violet-600 to-blue-600 bg-clip-text text-transparent">مواردك</span>
+              </div>
+              <div className="hidden md:flex items-center gap-1">
+                {navItems.map(item=>(
+                  <button key={item.path} onClick={()=>setCurrentPage(item.path)} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${currentPage===item.path?"bg-blue-50 text-blue-700":"text-gray-600 hover:text-gray-900 hover:bg-gray-50"}`}>
+                    {item.label}{item.path==="/favorites" && favorites.length>0 && <span className="mr-1.5 bg-blue-600 text-white text-xs rounded-full w-5 h-5 inline-flex items-center justify-center">{favorites.length}</span>}
+                  </button>
+                ))}
+              </div>
+              <div className="hidden md:flex items-center gap-3">
+                <button onClick={()=>setCurrentPage("/login")}><Button variant="ghost" size="sm">تسجيل الدخول</Button></button>
+                <button onClick={()=>setCurrentPage("/signup")}><Button variant="primary" size="sm">إنشاء حساب</Button></button>
+              </div>
+              <button className="md:hidden p-2 rounded-xl hover:bg-gray-100" onClick={()=>setMobileOpen(!mobileOpen)}><Icon name={mobileOpen?"x":"menu"} size={24} className="text-gray-600"/></button>
+            </div>
+          </div>
+          {mobileOpen && (
+            <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-2">
+              {navItems.map(item=>(
+                <button key={item.path} onClick={()=>{setCurrentPage(item.path);setMobileOpen(false)}} className={`block w-full text-right px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${currentPage===item.path?"bg-blue-50 text-blue-700":"text-gray-600 hover:bg-gray-50"}`}>{item.label}</button>
+              ))}
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button onClick={()=>{setCurrentPage("/login");setMobileOpen(false)}} className="flex-1"><Button variant="secondary" size="md" className="w-full">تسجيل الدخول</Button></button>
+                <button onClick={()=>{setCurrentPage("/signup");setMobileOpen(false)}} className="flex-1"><Button variant="primary" size="md" className="w-full">إنشاء حساب</Button></button>
+              </div>
+            </div>
+          )}
+        </nav>
+      );
+    }
+
+    /* ─── Footer ── */
+    function Footer() {
+      return (
+        <footer className="bg-gray-50 border-t border-gray-100 mt-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center"><Icon name="sparkle" size={18} className="text-white"/></div>
+                  <span className="text-xl font-bold bg-gradient-to-l from-violet-600 to-blue-600 bg-clip-text text-transparent">مواردك</span>
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">منصة عربية تساعدك في اكتشاف أفضل الموارد الرقمية بناءً على أهدافك واحتياجاتك.</p>
+              </div>
+              <div><h4 className="font-semibold text-gray-900 mb-3">المنصة</h4><ul className="space-y-2 text-sm text-gray-500"><li><button className="hover:text-blue-600 transition-colors">الموارد</button></li><li><button className="hover:text-blue-600 transition-colors">التوصية</button></li><li><button className="hover:text-blue-600 transition-colors">المفضلة</button></li></ul></div>
+              <div><h4 className="font-semibold text-gray-900 mb-3">المساعدة</h4><ul className="space-y-2 text-sm text-gray-500"><li><a href="#" className="hover:text-blue-600 transition-colors">الأسئلة الشائعة</a></li><li><a href="#" className="hover:text-blue-600 transition-colors">تواصل معنا</a></li></ul></div>
+              <div><h4 className="font-semibold text-gray-900 mb-3">قانوني</h4><ul className="space-y-2 text-sm text-gray-500"><li><a href="#" className="hover:text-blue-600 transition-colors">سياسة الخصوصية</a></li><li><a href="#" className="hover:text-blue-600 transition-colors">شروط الاستخدام</a></li></ul></div>
+            </div>
+            <div className="border-t border-gray-200 mt-10 pt-6 text-center text-sm text-gray-400">© 2026 مواردك. جميع الحقوق محفوظة.</div>
+          </div>
+        </footer>
+      );
+    }
+
+    /* ─── Resource Card ─── */
+    function ResourceCard({ resource, showMatch = false, matchPercent = 0, whyRecommended = "" }) {
+      const { favorites, toggleFavorite } = useApp();
+      const isFavorite = favorites.includes(resource.id);
+      return (
+        <Card hover>
+          <div className="h-40 bg-gradient-to-bl from-blue-100 via-violet-50 to-white flex items-center justify-center relative">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg"><Icon name="layers" size={28} className="text-white"/></div>
+            <button className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors shadow-sm" onClick={(e)=>{e.stopPropagation();toggleFavorite(resource.id);}}>
+              <Icon name={isFavorite?"heartFilled":"heart"} size={16} className={isFavorite?"text-red-500":"text-gray-400"}/>
+            </button>
+            {showMatch && <div className="absolute top-3 right-3 bg-gradient-to-l from-violet-600 to-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">{matchPercent}% تطابق</div>}
+          </div>
+          <div className="p-5 flex flex-col">
+            <div className="flex items-start justify-between mb-2"><h3 className="font-bold text-gray-900 text-lg">{resource.name}</h3></div>
+            <Badge variant="primary" className="self-start mb-3">{resource.type}</Badge>
+            <p className="text-sm text-gray-500 leading-relaxed mb-4 flex-1 line-clamp-2">{resource.description}</p>
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant={resource.pricing===0?"success":resource.pricing===1?"warning":"purple"}>{PRICING_LABELS[resource.pricing]}</Badge>
+              <Badge variant={resource.difficulty===0?"success":resource.difficulty===1?"warning":"pink"}>{DIFFICULTY_LABELS[resource.difficulty]}</Badge>
+            </div>
+            {whyRecommended && <p className="text-xs text-blue-600 bg-blue-50 rounded-lg p-2 mb-3">{whyRecommended}</p>}
+            <Button variant="secondary" size="md" className="w-full" onClick={()=>window.location.hash=`/resources/${resource.id}`}>عرض التفاصيل</Button>
+          </div>
+        </Card>
+      );
+    }
+
+    /* ── Home Page ─── */
+    function HomePage({ setCurrentPage }) {
+      const featuredResources = MOCK_RESOURCES.slice(0,6);
+      return (
+        <div>
+          <section className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-bl from-blue-50 via-white to-violet-50"/>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"/>
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-violet-200/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4"/>
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-32 lg:pb-36">
+              <div className="text-center max-w-4xl mx-auto">
+                <Badge variant="purple" className="mb-6 text-sm"><Icon name="sparkle" size={14} className="ml-1"/>منصة التوصية الذكية</Badge>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
+                  اكتشف <span className="bg-gradient-to-l from-violet-600 to-blue-600 bg-clip-text text-transparent">الموارد الرقمية</span> لأهدافك
+                </h1>
+                <p className="text-lg sm:text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">منصة عربية ذكية تساعدك في العثور على الأدوات والمنصات المناسبة بناءً على أهدافك ومجال عملك ومستواك</p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button variant="primary" size="xl" onClick={()=>setCurrentPage("/wizard")}><Icon name="sparkle" size={20} className="ml-2"/>ابدأ التوصية الآن</Button>
+                  <Button variant="secondary" size="xl" onClick={()=>setCurrentPage("/resources")}><Icon name="compass" size={20} className="ml-2"/>استكشف الموارد</Button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-100/50 p-6 grid grid-cols-3 gap-6">
+              <div className="text-center"><div className="text-2xl sm:text-3xl font-bold text-gray-900">+50</div><div className="text-sm text-gray-500 mt-1">مورد رقمي</div></div>
+              <div className="text-center border-x border-gray-100"><div className="text-2xl sm:text-3xl font-bold text-gray-900">3</div><div className="text-sm text-gray-500 mt-1">أهداف رئيسية</div></div>
+              <div className="text-center"><div className="text-2xl sm:text-3xl font-bold text-gray-900">6</div><div className="text-sm text-gray-500 mt-1">مجالات متنوعة</div></div>
+            </div>
+          </section>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <SectionTitle title="ما هدفك؟" subtitle="اختر هدفك وسنساعدك في العثور على الموارد الأنسب لتحقيقه"/>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {GOALS.map(goal=>(
+                <Card key={goal.id} hover className="p-8 text-center group" onClick={()=>setCurrentPage("/wizard")}>
+                  <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-violet-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300"><Icon name={goal.icon} size={28} className="text-blue-600"/></div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{goal.name}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{goal.description}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <SectionTitle title="موارد مميزة" subtitle="اكتشف بعض أفضل الموارد الرقمية المختارة بعناية"/>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredResources.map(r=><ResourceCard key={r.id} resource={r}/>)}
+            </div>
+            <div className="text-center mt-10"><Button variant="outline" size="lg" onClick={()=>setCurrentPage("/resources")}>عرض جميع الموارد<Icon name="arrowLeft" size={18} className="mr-2"/></Button></div>
+          </section>
+          <section className="bg-gray-50 py-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <SectionTitle title="كيف تعمل المنصة؟" subtitle="ثلاث خطوات بسيطة للعثور على الموارد المثالية"/>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[{step:"1",icon:"target",title:"اختر هدفك",desc:"حدد هدفك من بين الأهداف المتاحة مثل بدء مشروع أو تعلم مهارة جديدة"},{step:"2",icon:"layers",title:"حدد تفضيلاتك",desc:"اختر مجالك ومستواك وتفضيل السعر للحصول على توصيات دقيقة"},{step:"3",icon:"zap",title:"احصل على توصياتك",desc:"استلم قائمة بالموارد المناسبة مع خطة عملية لتحقيق أهدافك"}].map(item=>(
+                  <div key={item.step} className="text-center">
+                    <div className="relative inline-block mb-6">
+                      <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 mx-auto"><Icon name={item.icon} size={32} className="text-white"/></div>
+                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-lg border-2 border-blue-600 flex items-center justify-center text-sm font-bold text-blue-600 shadow-sm">{item.step}</div>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{item.title}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed max-w-xs mx-auto">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    /* ─── Resources Page ─── */
+    function ResourcesPage() {
+      const [search, setSearch] = useState("");
+      const [typeFilter, setTypeFilter] = useState("all");
+      const [priceFilter, setPriceFilter] = useState("all");
+      const [levelFilter, setLevelFilter] = useState("all");
+      const [goalFilter, setGoalFilter] = useState("all");
+      const filteredResources = MOCK_RESOURCES.filter(r=>{
+        const ms = r.name.includes(search)||r.description.includes(search)||r.tags.some(t=>t.includes(search));
+        const mt = typeFilter==="all"||r.type===typeFilter;
+        const mp = priceFilter==="all"||r.pricing===parseInt(priceFilter);
+        const ml = levelFilter==="all"||r.level===levelFilter;
+        const mg = goalFilter==="all"||r.goals.includes(goalFilter);
+        return ms&&mt&&mp&&ml&&mg;
+      });
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="mb-10"><h1 className="text-3xl font-bold text-gray-900 mb-2">دليل الموارد</h1><p className="text-gray-500">اكتشف أفضل الأدوات والمنصات الرقمية المتاحة</p></div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-8">
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex-1 relative">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none"><Icon name="search" size={18} className="text-gray-400"/></div>
+                <input type="text" placeholder="ابحث عن مورد..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pr-11 pl-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"/>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Select label="نوع المورد" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} options={[{value:"all",label:"جميع الأنواع"},...RESOURCE_TYPES.map(t=>({value:t,label:t}))]}/>
+              <Select label="السعر" value={priceFilter} onChange={e=>setPriceFilter(e.target.value)} options={[{value:"all",label:"جميع الأسعار"},{value:"0",label:"مجاني"},{value:"1",label:"مجاني/مدفوع"},{value:"2",label:"مدفوع"}]}/>
+              <Select label="المستوى" value={levelFilter} onChange={e=>setLevelFilter(e.target.value)} options={[{value:"all",label:"جميع المستويات"},...LEVELS.map(l=>({value:l.id,label:l.name}))]}/>
+              <Select label="الهدف" value={goalFilter} onChange={e=>setGoalFilter(e.target.value)} options={[{value:"all",label:"جميع الأهداف"},...GOALS.map(g=>({value:g.id,label:g.name}))]}/>
+            </div>
+          </div>
+          <div className="mb-6"><p className="text-sm text-gray-500">عرض <span className="font-semibold text-gray-900">{filteredResources.length}</span> مورد</p></div>
+          {filteredResources.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{filteredResources.map(r=><ResourceCard key={r.id} resource={r}/>)}</div>
+          ) : (
+            <div className="text-center py-20"><div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Icon name="search" size={32} className="text-gray-400"/></div><h3 className="text-lg font-semibold text-gray-900 mb-2">لا توجد نتائج</h3><p className="text-gray-500">جرّب تغيير معايير البحث أو الفلاتر</p></div>
+          )}
+        </div>
+      );
+    }
+
+    /* ─── Resource Details ─── */
+    function ResourceDetailsPage({ setCurrentPage }) {
+      const hash = window.location.hash;
+      const match = hash.match(/\/resources\/(\d+)/);
+      const id = match ? parseInt(match[1]) : null;
+      const resource = MOCK_RESOURCES.find(r=>r.id===id);
+      const { favorites, toggleFavorite } = useApp();
+      const isFavorite = resource ? favorites.includes(resource.id) : false;
+      if (!resource) return <div className="max-w-7xl mx-auto px-4 py-20 text-center"><h2 className="text-2xl font-bold text-gray-900 mb-4">المورد غير موجود</h2><Button onClick={()=>setCurrentPage("/resources")}>العودة للموارد</Button></div>;
+      const relatedResources = MOCK_RESOURCES.filter(r=>r.id!==resource.id&&(r.type===resource.type||r.goals.some(g=>resource.goals.includes(g)))).slice(0,3);
+      const domainNames = DOMAINS.filter(d=>resource.domains.includes(d.id)).map(d=>d.name);
+      return (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-8">
+            <button onClick={()=>setCurrentPage("/")} className="hover:text-blue-600">الرئيسية</button><span>/</span>
+            <button onClick={()=>setCurrentPage("/resources")} className="hover:text-blue-600">الموارد</button><span>/</span>
+            <span className="text-gray-900 font-medium">{resource.name}</span>
+          </div>
+          <div className="bg-gradient-to-bl from-blue-50 via-white to-violet-50 rounded-3xl border border-gray-100 p-8 mb-8">
+            <div className="flex flex-col sm:flex-row items-start gap-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0"><Icon name="layers" size={36} className="text-white"/></div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2 flex-wrap"><h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{resource.name}</h1><Badge variant="primary">{resource.type}</Badge></div>
+                <p className="text-gray-500 leading-relaxed mb-4">{resource.description}</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant={resource.pricing===0?"success":resource.pricing===1?"warning":"purple"}>السعر: {PRICING_LABELS[resource.pricing]}</Badge>
+                  <Badge variant={resource.difficulty===0?"success":resource.difficulty===1?"warning":"pink"}>المستوى: {DIFFICULTY_LABELS[resource.difficulty]}</Badge>
+                  <button className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors ${isFavorite?"bg-red-50 text-red-600":"bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600"}`} onClick={()=>toggleFavorite(resource.id)}><Icon name={isFavorite?"heartFilled":"heart"} size={16}/>{isFavorite?"في المفضلة":"إضافة للمفضلة"}</button>
+                  <a href={resource.url} target="_blank" rel="noopener noreferrer" className="mr-auto"><Button variant="primary" size="md"><Icon name="externalLink" size={16} className="ml-2"/>زيارة الموقع</Button></a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            <Card className="p-6"><h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icon name="target" size={18} className="text-blue-600"/>حالة الاستخدام</h3><p className="text-sm text-gray-600 leading-relaxed">{resource.useCase}</p></Card>
+            <Card className="p-6"><h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icon name="user" size={18} className="text-blue-600"/>الفئة المستهدفة</h3><p className="text-sm text-gray-600 leading-relaxed">{resource.targetAudience}</p></Card>
+            <Card className="p-6"><h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icon name="layers" size={18} className="text-blue-600"/>المجالات</h3><div className="flex flex-wrap gap-2">{domainNames.map(name=><Badge key={name} variant="purple">{name}</Badge>)}</div></Card>
+          </div>
+          <Card className="p-6 mb-10"><h3 className="font-bold text-gray-900 mb-4">الوسوم</h3><div className="flex flex-wrap gap-2">{resource.tags.map(tag=><span key={tag} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer">#{tag}</span>)}</div></Card>
+          {relatedResources.length > 0 && (<div><h3 className="text-xl font-bold text-gray-900 mb-6">موارد مشابهة</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{relatedResources.map(r=><ResourceCard key={r.id} resource={r}/>)}</div></div>)}
+        </div>
+      );
+    }
+
+    /* ─── Wizard Page ─── */
+    function WizardPage({ setCurrentPage }) {
+      const [step, setStep] = useState(1);
+      const [selections, setSelections] = useState({ goal:"", domain:"", level:"", price:"" });
+      const totalSteps = 5;
+      const canProceed = ()=>{
+        if(step===1) return !!selections.goal;
+        if(step===2) return !!selections.domain;
+        if(step===3) return !!selections.level;
+        if(step===4) return !!selections.price;
+        return true;
+      };
+      const handleNext = ()=>{
+        if(step<totalSteps && canProceed()) setStep(step+1);
+        if(step===totalSteps){
+          setCurrentPage("/results");
+          window._wizardState = selections;
+        }
+      };
+      const updateSelection = (key, value) => setSelections(prev=>({...prev,[key]:value}));
+      const selectionLabels = {
+        goal: GOALS.find(g=>g.id===selections.goal)?.name,
+        domain: DOMAINS.find(d=>d.id===selections.domain)?.name,
+        level: LEVELS.find(l=>l.id===selections.level)?.name,
+        price: PRICE_PREFERENCES.find(p=>p.id===selections.price)?.name,
+      };
+      return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="text-center mb-10"><h1 className="text-3xl font-bold text-gray-900 mb-2">معالج التوصية</h1><p className="text-gray-500">أجب على بعض الأسئلة البسيطة لنوصي لك بالموارد المناسبة</p></div>
+          <div className="mb-10 max-w-lg mx-auto">
+            <ProgressBar current={step} total={totalSteps}/>
+            <div className="flex justify-between mt-4">
+              {["الهدف","المجال","المستوى","السعر","النتائج"].map((label,i)=>(
+                <div key={label} className="flex flex-col items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${i+1<step?"bg-blue-600 text-white":i+1===step?"bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-lg shadow-blue-500/25":"bg-gray-100 text-gray-400"}`}>{i+1<step?<Icon name="check" size={14}/>:i+1}</div>
+                  <span className={`text-xs mt-1 ${i+1<=step?"text-gray-900 font-medium":"text-gray-400"}`}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 mb-8">
+            {step===1 && (<div><h2 className="text-xl font-bold text-gray-900 mb-2">اختر هدفك</h2><p className="text-gray-500 mb-6">ما هو هدفك الرئيسي حالياً؟</p><div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{GOALS.map(goal=>(<div key={goal.id} className={`p-6 rounded-2xl border-2 cursor-pointer transition-all text-center ${selections.goal===goal.id?"border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/10":"border-gray-100 hover:border-gray-200 hover:bg-gray-50"}`} onClick={()=>updateSelection("goal",goal.id)}><div className={`w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center transition-colors ${selections.goal===goal.id?"bg-gradient-to-br from-blue-500 to-violet-500":"bg-gray-100"}`}><Icon name={goal.icon} size={24} className={selections.goal===goal.id?"text-white":"text-gray-400"}/></div><h3 className="font-bold text-gray-900 mb-1">{goal.name}</h3><p className="text-xs text-gray-500">{goal.description}</p></div>))}</div></div>)}
+            {step===2 && (<div><h2 className="text-xl font-bold text-gray-900 mb-2">اختر مجالك</h2><p className="text-gray-500 mb-6">في أي مجال تريد التركيز؟</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{DOMAINS.map(domain=>(<div key={domain.id} className={`p-4 rounded-2xl border-2 cursor-pointer transition-all text-center ${selections.domain===domain.id?"border-blue-500 bg-blue-50":"border-gray-100 hover:border-gray-200 hover:bg-gray-50"}`} onClick={()=>updateSelection("domain",domain.id)}><h3 className="font-semibold text-gray-900 text-sm">{domain.name}</h3></div>))}</div></div>)}
+            {step===3 && (<div><h2 className="text-xl font-bold text-gray-900 mb-2">حدد مستواك</h2><p className="text-gray-500 mb-6">ما هو مستواك الحالي في هذا المجال؟</p><div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{LEVELS.map(level=>(<div key={level.id} className={`p-6 rounded-2xl border-2 cursor-pointer transition-all text-center ${selections.level===level.id?"border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/10":"border-gray-100 hover:border-gray-200 hover:bg-gray-50"}`} onClick={()=>updateSelection("level",level.id)}><h3 className="font-bold text-gray-900 mb-1">{level.name}</h3><p className="text-xs text-gray-500">{level.description}</p></div>))}</div></div>)}
+            {step===4 && (<div><h2 className="text-xl font-bold text-gray-900 mb-2">اختر تفضيل السعر</h2><p className="text-gray-500 mb-6">ما هو نطاق السعر المناسب لك؟</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{PRICE_PREFERENCES.map(pref=>(<div key={pref.id} className={`p-6 rounded-2xl border-2 cursor-pointer transition-all ${selections.price===pref.id?"border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/10":"border-gray-100 hover:border-gray-200 hover:bg-gray-50"}`} onClick={()=>updateSelection("price",pref.id)}><h3 className="font-bold text-gray-900 mb-1">{pref.name}</h3><p className="text-xs text-gray-500">{pref.description}</p></div>))}</div></div>)}
+            {step===5 && (<div><h2 className="text-xl font-bold text-gray-900 mb-2">مراجعة اختياراتك</h2><p className="text-gray-500 mb-6">تأكد من اختياراتك قبل عرض النتائج</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">{[{label:"الهدف",value:selectionLabels.goal},{label:"المجال",value:selectionLabels.domain},{label:"المستوى",value:selectionLabels.level},{label:"السعر",value:selectionLabels.price}].map(item=>(<div key={item.label} className="bg-gray-50 rounded-xl p-4"><span className="text-sm text-gray-500">{item.label}</span><p className="font-semibold text-gray-900 mt-1">{item.value}</p></div>))}</div></div>)}
+          </div>
+          <div className="flex items-center justify-between">
+            <Button variant="secondary" size="lg" onClick={()=>{if(step>1)setStep(step-1)}} disabled={step===1}><Icon name="arrowRight" size={18} className="ml-2"/>السابق</Button>
+            <Button variant="primary" size="lg" onClick={handleNext} disabled={!canProceed()&&step<5}>{step===totalSteps?"عرض النتائج":"التالي"}{step<totalSteps&&<Icon name="arrowLeft" size={18} className="mr-2"/>}</Button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Results Page ─── */
+    function ResultsPage({ setCurrentPage }) {
+      const { favorites, toggleFavorite } = useApp();
+      const selections = window._wizardState || {};
+      const getRecommendations = useCallback(()=>{
+        if(!selections.goal) return [];
+        const {goal,domain,level,price} = selections;
+        const levelIdx = LEVEL_MAP[level]??1;
+        return MOCK_RESOURCES.map(resource=>{
+          let score=0; let reasons=[];
+          if(goal && resource.goals.includes(goal)){score+=30;reasons.push("يطابق هدفك");}
+          if(domain && resource.domains.includes(domain)){score+=25;reasons.push("في مجال اختيارك");}
+          if(level){const ri=LEVEL_MAP[resource.level]??1;const ld=Math.abs(ri-levelIdx);if(ld===0){score+=20;reasons.push("مناسب لمستواك");}else if(ld===1){score+=10;reasons.push("قريب من مستواك");}}
+          if(price && price!=="any"){if(price==="free"&&resource.pricing===0){score+=25;reasons.push("مجاني");}else if(price==="freemium"&&(resource.pricing===0||resource.pricing===1)){score+=20;reasons.push("يحتوي على خطة مجانية");}else if(price==="paid"&&resource.pricing===2){score+=25;reasons.push("أداة احترافية مدفوعة");}else if(price==="any"){score+=10;}}
+          return {resource,matchPercent:Math.min(Math.round(score),100),reasons};
+        }).filter(r=>r.matchPercent>0).sort((a,b)=>b.matchPercent-a.matchPercent);
+      },[selections]);
+      const recommendations = getRecommendations();
+      if(!selections.goal){
+        return <div className="max-w-7xl mx-auto px-4 py-20 text-center"><h2 className="text-2xl font-bold text-gray-900 mb-4">يرجى إكمال معالج التوصية أولاً</h2><Button onClick={()=>setCurrentPage("/wizard")}>ابدأ التوصية</Button></div>;
+      }
+      return (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="text-center mb-10"><div className="inline-flex items-center gap-2 bg-gradient-to-l from-violet-100 to-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-4"><Icon name="sparkle" size={16}/>نتائج التوصية</div><h1 className="text-3xl font-bold text-gray-900 mb-2">مواردك الموصى بها</h1><p className="text-gray-500">بناءً على اختياراتك، إليك أفضل الموارد المناسبة لك</p></div>
+          <Card className="p-6 mb-10 bg-gradient-to-bl from-blue-50 to-violet-50 border-blue-100">
+            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Icon name="clipboard" size={18} className="text-blue-600"/>ملخص اختياراتك</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{[{label:"الهدف",value:GOALS.find(g=>g.id===selections.goal)?.name},{label:"المجال",value:DOMAINS.find(d=>d.id===selections.domain)?.name},{label:"المستوى",value:LEVELS.find(l=>l.id===selections.level)?.name},{label:"السعر",value:PRICE_PREFERENCES.find(p=>p.id===selections.price)?.name}].map(item=>(<div key={item.label} className="bg-white rounded-xl p-3"><span className="text-xs text-gray-500">{item.label}</span><p className="font-semibold text-gray-900 text-sm mt-0.5">{item.value}</p></div>))}</div>
+          </Card>
+          <div className="mb-16">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2"><Icon name="star" size={20} className="text-yellow-500"/>التوصيات مرتبة حسب التطابق</h2>
+            <div className="space-y-4">
+              {recommendations.map(({resource,matchPercent,reasons})=>{
+                const isFavorite=favorites.includes(resource.id);
+                return (
+                  <Card key={resource.id} hover className="p-6">
+                    <div className="flex flex-col sm:flex-row items-start gap-5">
+                      <div className="flex-shrink-0"><div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center shadow-lg shadow-blue-500/20"><span className="text-white font-bold text-lg">{matchPercent}%</span></div></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap"><h3 className="font-bold text-gray-900 text-lg">{resource.name}</h3><Badge variant="primary">{resource.type}</Badge></div>
+                        <p className="text-sm text-gray-500 mb-3 line-clamp-1">{resource.description}</p>
+                        <div className="flex flex-wrap items-center gap-2 mb-3">{reasons.map((reason,i)=><span key={i} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">✓ {reason}</span>)}</div>
+                        <div className="flex flex-wrap gap-2">{resource.tags.slice(0,3).map(tag=><span key={tag} className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{tag}</span>)}</div>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-shrink-0">
+                        <Button variant="primary" size="sm" onClick={()=>setCurrentPage(`/resources/${resource.id}`)}>عرض التفاصيل</Button>
+                        <Button variant={isFavorite?"danger":"secondary"} size="sm" onClick={()=>toggleFavorite(resource.id)}><Icon name={isFavorite?"heartFilled":"heart"} size={14} className="ml-1"/>{isFavorite?"إزالة":"حفظ"}</Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+          <div className="mb-10">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2"><Icon name="clipboard" size={20} className="text-blue-600"/>خطة عملية مقترحة</h2>
+            <div className="space-y-4">
+              {ACTION_PLAN_STEPS.map((planStep,index)=>{
+                const suggestedResource=planStep.suggestedResources.map(id=>recommendations.find(r=>r.resource.id===id)).filter(Boolean).map(r=>r.resource);
+                return (
+                  <Card key={index} className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20"><span className="text-white font-bold">{planStep.step}</span></div>
+                      <div className="flex-1"><h3 className="font-bold text-gray-900 mb-1">{planStep.title}</h3><p className="text-sm text-gray-500 mb-3">{planStep.description}</p>{suggestedResource.length>0&&<div className="flex items-center gap-2 flex-wrap"><span className="text-xs text-gray-400">موارد مقترحة:</span>{suggestedResource.map(r=><button key={r.id} onClick={()=>setCurrentPage(`/resources/${r.id}`)} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">{r.name}</button>)}</div>}</div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button variant="outline" size="lg" onClick={()=>setCurrentPage("/wizard")}><Icon name="sparkle" size={18} className="ml-2"/>إعادة التوصية</Button>
+            <Button variant="primary" size="lg" onClick={()=>setCurrentPage("/resources")}><Icon name="compass" size={18} className="ml-2"/>تصفح جميع الموارد</Button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Login Page ─── */
+    function LoginPage({ setCurrentPage }) {
+      const [showPassword, setShowPassword] = useState(false);
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      return (
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 mb-6 cursor-pointer" onClick={()=>setCurrentPage("/")}>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg"><Icon name="sparkle" size={20} className="text-white"/></div>
+                <span className="text-2xl font-bold bg-gradient-to-l from-violet-600 to-blue-600 bg-clip-text text-transparent">مواردك</span>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">مرحباً بعودتك</h1>
+              <p className="text-gray-500 mt-2">سجّل دخولك للوصول إلى مواردك المفضلة</p>
+            </div>
+            <Card className="p-8">
+              <form onSubmit={e=>{e.preventDefault();setCurrentPage("/");}}>
+                <Input label="البريد الإلكتروني" type="email" placeholder="example@email.com" value={email} onChange={e=>setEmail(e.target.value)} className="mb-4"/>
+                <div className="mb-4"><label className="block text-sm font-medium text-gray-700 mb-1.5">كلمة المرور</label><div className="relative"><input type={showPassword?"text":"password"} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-11"/><button type="button" className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 hover:text-gray-600" onClick={()=>setShowPassword(!showPassword)}><Icon name={showPassword?"eyeOff":"eye"} size={18}/></button></div></div>
+                <div className="flex items-center justify-between mb-6"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-600">تذكرني</span></label><a href="#" className="text-sm text-blue-600 hover:text-blue-700">نسيت كلمة المرور؟</a></div>
+                <Button variant="primary" type="submit" className="w-full" size="lg">تسجيل الدخول</Button>
+              </form>
+            </Card>
+            <p className="text-center mt-6 text-sm text-gray-500">ليس لديك حساب؟ <button onClick={()=>setCurrentPage("/signup")} className="text-blue-600 font-medium hover:text-blue-700">إنشاء حساب جديد</button></p>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Signup Page ─── */
+    function SignupPage({ setCurrentPage }) {
+      const [showPassword, setShowPassword] = useState(false);
+      const [name, setName] = useState("");
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      return (
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 mb-6 cursor-pointer" onClick={()=>setCurrentPage("/")}>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg"><Icon name="sparkle" size={20} className="text-white"/></div>
+                <span className="text-2xl font-bold bg-gradient-to-l from-violet-600 to-blue-600 bg-clip-text text-transparent">مواردك</span>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">إنشاء حساب جديد</h1>
+              <p className="text-gray-500 mt-2">انضم إلينا واكتشف أفضل الموارد الرقمية</p>
+            </div>
+            <Card className="p-8">
+              <form onSubmit={e=>{e.preventDefault();setCurrentPage("/");}}>
+                <Input label="الاسم الكامل" type="text" placeholder="أحمد محمد" value={name} onChange={e=>setName(e.target.value)} className="mb-4"/>
+                <Input label="البريد الإلكتروني" type="email" placeholder="example@email.com" value={email} onChange={e=>setEmail(e.target.value)} className="mb-4"/>
+                <div className="mb-6"><label className="block text-sm font-medium text-gray-700 mb-1.5">كلمة المرور</label><div className="relative"><input type={showPassword?"text":"password"} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-11"/><button type="button" className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 hover:text-gray-600" onClick={()=>setShowPassword(!showPassword)}><Icon name={showPassword?"eyeOff":"eye"} size={18}/></button></div><p className="text-xs text-gray-400 mt-1.5">يجب أن تكون 8 أحرف على الأقل</p></div>
+                <Button variant="primary" type="submit" className="w-full" size="lg">إنشاء الحساب</Button>
+              </form>
+            </Card>
+            <p className="text-center mt-6 text-sm text-gray-500">لديك حساب بالفعل؟ <button onClick={()=>setCurrentPage("/login")} className="text-blue-600 font-medium hover:text-blue-700">تسجيل الدخول</button></p>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Favorites Page ─── */
+    function FavoritesPage({ setCurrentPage }) {
+      const { favorites } = useApp();
+      const favoriteResources = MOCK_RESOURCES.filter(r=>favorites.includes(r.id));
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="mb-10"><h1 className="text-3xl font-bold text-gray-900 mb-2">الموارد المفضلة</h1><p className="text-gray-500">الموارد التي قمت بحفظها للرجوع إليها لاحقاً</p></div>
+          {favoriteResources.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{favoriteResources.map(r=><ResourceCard key={r.id} resource={r}/>)}</div>
+          ) : (
+            <div className="text-center py-20"><div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6"><Icon name="heart" size={40} className="text-gray-300"/></div><h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد موارد محفوظة</h3><p className="text-gray-500 mb-6">ابدأ بحفظ الموارد التي تعجبك للرجوع إليها لاحقاً</p><Button variant="primary" size="lg" onClick={()=>setCurrentPage("/resources")}><Icon name="compass" size={18} className="ml-2"/>استكشف الموارد</Button></div>
+          )}
+        </div>
+      );
+    }
+
+    /* ─── My Plans Page ─── */
+    function MyPlansPage({ setCurrentPage }) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="mb-10"><h1 className="text-3xl font-bold text-gray-900 mb-2">خططي</h1><p className="text-gray-500">الخطط العملية التي قمت بحفظها من نتائج التوصية</p></div>
+          <div className="text-center py-20">
+            <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6"><Icon name="clipboard" size={40} className="text-gray-300"/></div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد خطط محفوظة</h3>
+            <p className="text-gray-500 mb-6">أكمل معالج التوصية للحصول على خطة عملية مخصصة لك</p>
+            <Button variant="primary" size="lg" onClick={()=>setCurrentPage("/wizard")}><Icon name="sparkle" size={18} className="ml-2"/>ابدأ التوصية الآن</Button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Not Found ─── */
+    function NotFoundPage({ setCurrentPage }) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+          <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6"><Icon name="search" size={40} className="text-gray-300"/></div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">الصفحة غير موجودة</h2>
+          <Button onClick={()=>setCurrentPage("/")}>العودة للرئيسية</Button>
+        </div>
+      );
+    }
+
+    /* ─── Main App ─── */
+    function App() {
+      const [currentPage, setCurrentPage] = useState("/");
+      const [favorites, setFavorites] = useState([1, 5]);
+
+      const toggleFavorite = useCallback((id) => {
+        setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
+      }, []);
+
+      useEffect(() => {
+        const handleHashChange = () => {
+          const hash = window.location.hash.replace("#", "") || "/";
+          if (hash.startsWith("/resources/")) {
+            setCurrentPage(hash);
+          }
+        };
+        window.addEventListener("hashchange", handleHashChange);
+        return () => window.removeEventListener("hashchange", handleHashChange);
+      }, []);
+
+      const navigate = (path) => {
+        window.location.hash = path;
+        setCurrentPage(path);
+      };
+
+      let page;
+      const pagePath = currentPage.startsWith("/resources/") ? "/resources/:id" : currentPage;
+
+      switch(pagePath) {
+        case "/": page = <HomePage setCurrentPage={navigate}/>; break;
+        case "/resources": page = <ResourcesPage/>; break;
+        case "/resources/:id": page = <ResourceDetailsPage setCurrentPage={navigate}/>; break;
+        case "/wizard": page = <WizardPage setCurrentPage={navigate}/>; break;
+        case "/results": page = <ResultsPage setCurrentPage={navigate}/>; break;
+        case "/login": page = <LoginPage setCurrentPage={navigate}/>; break;
+        case "/signup": page = <SignupPage setCurrentPage={navigate}/>; break;
+        case "/favorites": page = <FavoritesPage setCurrentPage={navigate}/>; break;
+        case "/plans": page = <MyPlansPage setCurrentPage={navigate}/>; break;
+        default: page = <NotFoundPage setCurrentPage={navigate}/>;
+      }
+
+      return (
+        <AppContext.Provider value={{ favorites, toggleFavorite }}>
+          <div dir="rtl" className="min-h-screen bg-white text-gray-900">
+            <Navbar currentPage={currentPage} setCurrentPage={navigate}/>
+            <main className="min-h-[calc(100vh-4rem)]">{page}</main>
+            <Footer/>
+          </div>
+        </AppContext.Provider>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
+
